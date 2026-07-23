@@ -1,0 +1,23 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: dlq-rest-service
+
+dlq:
+  artemis:
+    broker-url: tcp://localhost:61616
+    username: admin
+    password: admin
+    management-address: activemq.management
+    connect-timeout-ms: 5000
+    request-timeout-ms: 5000
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    ai.unlearn.dlq: INFO
