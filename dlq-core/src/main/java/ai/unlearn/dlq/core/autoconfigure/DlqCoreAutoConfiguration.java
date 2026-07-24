@@ -34,7 +34,8 @@ public class DlqCoreAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public DlqBrowserService dlqBrowserService(ArtemisManagementClient artemisManagementClient,
-                                                ObjectMapper dlqObjectMapper) {
-        return new DlqBrowserServiceImpl(artemisManagementClient, dlqObjectMapper);
+                                                ObjectMapper dlqObjectMapper,
+                                                ArtemisConnectionProperties properties) {
+        return new DlqBrowserServiceImpl(artemisManagementClient, dlqObjectMapper, properties.getManagementAddress());
     }
 }

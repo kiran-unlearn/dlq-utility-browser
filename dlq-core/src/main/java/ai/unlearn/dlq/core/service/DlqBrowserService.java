@@ -11,6 +11,17 @@ import java.util.List;
 public interface DlqBrowserService {
 
     /**
+     * Lists the names of queues deployed on the broker, for populating a queue picker/typeahead
+     * so callers don't need to already know the exact queue name. Broker-internal management
+     * queues (e.g. {@code activemq.management.*}) are excluded since they're never something a
+     * user would want to browse or act on.
+     *
+     * @param search case-insensitive substring to filter queue names by, or {@code null}/empty for all queues
+     * @return matching queue names, sorted alphabetically
+     */
+    List<String> listQueueNames(String search);
+
+    /**
      * Lists messages currently on the given queue, without consuming them.
      *
      * @param queueName the DLQ to browse

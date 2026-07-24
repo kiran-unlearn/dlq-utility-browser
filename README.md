@@ -92,7 +92,9 @@ project source itself baked in and pre-built (`mvn install` runs at image-build 
 tests, as a sanity check). No volume mount is needed — everything needed to build and run the app
 already lives in the image.
 
-Build once, then start the container (it runs the Artemis broker in the foreground by default):
+Build once, then start the container. `start.sh` (the image's `CMD`) launches the Artemis broker
+and `dlq-rest-service` together — no `docker exec` needed, the REST API is live as soon as the
+container is:
 
 ```bash
 docker build -t dlq-test-broker .
@@ -105,15 +107,13 @@ different host port instead: `-p 18080:8080`.)
 The broker comes up with a `DLQ` anycast queue/address already deployed (Artemis creates it by
 default) — exactly what the example commands below expect — reachable at `tcp://localhost:61616`
 with admin/admin, matching the defaults in `application.yml`. A web console is at
-`http://localhost:8161/console`.
+`http://localhost:8161/console`. `HEALTHCHECK` polls the REST API itself, so `docker ps`/`docker
+inspect` reflect whether the whole stack (broker + REST service) is actually up, not just the
+container process.
 
-Exec into the running container and start the REST service with the bundled Maven — the broker is
-reachable at `localhost` inside the container, no extra config needed:
-
-```bash
-docker exec -it dlq-test-broker bash
-cd dlq-rest-service && mvn spring-boot:run
-```
+`start.sh` ties the two processes together: if either the broker or `dlq-rest-service` dies, the
+other is killed and the container exits, instead of silently limping along with only half the
+stack running.
 
 From the host, hit it with curl or Postman at `http://localhost:8080` (or whatever host port you
 mapped). Seed some test messages first, directly onto `DLQ`, using the broker's bundled producer
@@ -135,22 +135,40 @@ docker exec dlq-test-broker /opt/artemis/bin/artemis queue create --user admin -
 If you change source and want the image to pick it up, `docker build` again — the poms-then-source
 layering means only the module you touched gets rebuilt, not a full re-download of dependencies.
 
-## API
+`docker exec -it dlq-test-broker bash` is still there if you want a shell in the running container
+(e.g. to run `mvn test` ad hoc, or restart just `dlq-rest-service` after copying in a change without
+rebuilding the image — copy with `docker cp <local-dir>/. dlq-test-broker:/workspace/<module>/src`,
+note the trailing `/.` so it overwrites in place instead of nesting).
 
-All endpoints are scoped to a queue name, e.g. `DLQ` or an address-specific dead letter queue.
+## API
 
 | Method | Path                                              | Description                          |
 |--------|----------------------------------------------------|---------------------------------------|
+| GET    | `/api/dlq/queues`                                  | List/search queue names (optional `?search=`) |
 | GET    | `/api/dlq/queues/{queueName}/messages`             | List messages (optional `?filter=`)   |
 | GET    | `/api/dlq/queues/{queueName}/messages/count`       | Count messages (optional `?filter=`)  |
 | DELETE | `/api/dlq/queues/{queueName}/messages`             | Delete selected messages by ID        |
 | POST   | `/api/dlq/queues/{queueName}/messages/move`        | Move selected messages to another queue |
+
+The `{queueName}`-scoped endpoints work against any queue on the broker, not just DLQs — e.g. a
+target queue you `move` messages onto. `GET /api/dlq/queues` is meant for populating a queue
+picker/typeahead in a UI, so a user doesn't need to already know a queue's exact name up front:
+type a few characters, get matches, pick one, then call the `{queueName}` endpoints against it.
+It excludes the broker's own internal per-connection management queues (`activemq.management.*`)
+since those are never something a user would want to select. Results are sorted alphabetically
+(case-insensitive).
 
 `filter` is an Artemis core filter expression (SQL-92-like syntax over message properties).
 
 ### Examples
 
 ```bash
+# List all queues (for a picker/typeahead)
+curl http://localhost:8080/api/dlq/queues
+
+# Search queues by substring, case-insensitive (e.g. as the user types "dlq")
+curl "http://localhost:8080/api/dlq/queues?search=dlq"
+
 # Browse
 curl http://localhost:8080/api/dlq/queues/DLQ/messages
 

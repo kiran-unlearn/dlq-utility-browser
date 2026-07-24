@@ -13,6 +13,7 @@ import org.apache.activemq.artemis.api.core.management.ResourceNames;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class DlqBrowserServiceImpl implements DlqBrowserService {
@@ -20,9 +21,41 @@ public class DlqBrowserServiceImpl implements DlqBrowserService {
     private final ArtemisManagementClient client;
     private final ObjectMapper objectMapper;
 
-    public DlqBrowserServiceImpl(ArtemisManagementClient client, ObjectMapper objectMapper) {
+    /**
+     * Prefix of the broker's auto-created, per-connection management reply queues (e.g.
+     * {@code activemq.management.<uuid>}), derived from the configured management address so
+     * {@link #listQueueNames} can exclude them — they're broker plumbing, never something a user
+     * would want to browse or act on.
+     */
+    private final String managementQueuePrefix;
+
+    public DlqBrowserServiceImpl(ArtemisManagementClient client, ObjectMapper objectMapper, String managementAddress) {
         this.client = client;
         this.objectMapper = objectMapper;
+        this.managementQueuePrefix = managementAddress + ".";
+    }
+
+    @Override
+    public List<String> listQueueNames(String search) {
+        Object result = client.invokeOperation(ResourceNames.BROKER, "getQueueNames");
+        List<String> names = new ArrayList<>();
+        if (result instanceof Object[] values) {
+            for (Object value : values) {
+                if (value == null) {
+                    continue;
+                }
+                String name = value.toString();
+                if (!name.startsWith(managementQueuePrefix)) {
+                    names.add(name);
+                }
+            }
+        }
+        if (search != null && !search.isBlank()) {
+            String needle = search.toLowerCase(Locale.ROOT);
+            names.removeIf(name -> !name.toLowerCase(Locale.ROOT).contains(needle));
+        }
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        return names;
     }
 
     @Override

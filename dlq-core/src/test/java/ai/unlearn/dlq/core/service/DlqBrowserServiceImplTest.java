@@ -28,7 +28,32 @@ class DlqBrowserServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new DlqBrowserServiceImpl(client, new ObjectMapper());
+        service = new DlqBrowserServiceImpl(client, new ObjectMapper(), "activemq.management");
+    }
+
+    @Test
+    void listQueueNamesExcludesManagementQueuesAndSorts() {
+        when(client.invokeOperation(eq("broker"), eq("getQueueNames")))
+                .thenReturn(new Object[] {
+                        "activemq.management.33c492f2-ef9a-4376-a3fa-fd2ac651705f",
+                        "DLQ",
+                        "ExpiryQueue",
+                        "orders.in"
+                });
+
+        List<String> names = service.listQueueNames(null);
+
+        assertThat(names).containsExactly("DLQ", "ExpiryQueue", "orders.in");
+    }
+
+    @Test
+    void listQueueNamesFiltersBySubstringCaseInsensitively() {
+        when(client.invokeOperation(eq("broker"), eq("getQueueNames")))
+                .thenReturn(new Object[] { "DLQ", "ExpiryQueue", "orders.in" });
+
+        List<String> names = service.listQueueNames("dlq");
+
+        assertThat(names).containsExactly("DLQ");
     }
 
     @Test

@@ -1,10 +1,11 @@
 # Fully self-contained test environment: JDK 17 + Maven + a standalone Apache Artemis broker +
 # the project source itself, pre-built. No volume mount needed.
 #
-# Default behavior (no args) starts the Artemis broker in the foreground. `docker exec -it
-# <container> bash` gets you a shell in the same container with the project already built at
-# /workspace and the broker reachable at localhost:61616 — from there `cd dlq-rest-service &&
-# mvn spring-boot:run` starts the REST API on :8080, testable from the host via the published port.
+# Default behavior (no args) starts both the Artemis broker and dlq-rest-service (via start.sh),
+# so `docker run -p 61616:61616 -p 8161:8161 -p 8080:8080 <image>` alone gives you a working REST
+# API at :8080, testable from the host with curl/Postman. `docker exec -it <container> bash` still
+# gets you a shell in the same container (project already built at /workspace) for rebuilding after
+# code changes or running things by hand.
 
 FROM eclipse-temurin:17-jdk-jammy
 
@@ -63,10 +64,13 @@ RUN cd dlq-core && mvn -q -B install
 COPY dlq-rest-service/ dlq-rest-service/
 RUN cd dlq-rest-service && mvn -q -B install
 
-# 61616 = core protocol (what dlq-core connects to), 8161 = web console, 8080 = dlq-rest-service if run in-container
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+
+# 61616 = core protocol (what dlq-core connects to), 8161 = web console, 8080 = dlq-rest-service
 EXPOSE 61616 8161 8080
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=30s \
-    CMD curl -sf http://localhost:8161/console/ >/dev/null || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --start-period=60s \
+    CMD curl -sf http://localhost:8080/api/dlq/queues/DLQ/messages/count >/dev/null || exit 1
 
-CMD ["artemis", "run"]
+CMD ["/usr/local/bin/start.sh"]
