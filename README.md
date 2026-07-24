@@ -10,10 +10,25 @@ A REST utility for browsing, deleting, and moving messages on AMQ7 (Artemis) dea
   `activemq.management` address. This avoids needing a JMX/RMI port open — only the normal core
   protocol port (e.g. `61616`) is required. Ships as a Spring Boot auto-configuration: any app
   that depends on it gets a `DlqBrowserService` bean for free once `dlq.artemis.*` properties are set.
-- **dlq-rest-service** — Spring Boot app exposing `dlq-core` over REST. This is what a browser
-  (or any HTTP client) talks to.
+- **dlq-rest-service** — Spring Boot app exposing `dlq-core` over REST. Also serves the web UI as
+  static assets (`src/main/resources/static/`) — plain HTML/CSS/vanilla JS, no build step, no
+  frontend framework. It calls the REST API on the same origin (same host/port), so there's no
+  CORS configuration to maintain. Open `http://localhost:8080/` once the app is running.
 
-A future browser UI module would call `dlq-rest-service`.
+### Web UI
+
+A single page (`index.html` + `app.js` + `style.css`) for the common workflow: type a few
+characters of a queue name into the **Queue name** field to get autocomplete suggestions from
+`GET /api/dlq/queues?search=` (no need to know the exact name up front), pick one, then **Count**
+or **Browse**. Browsing shows a table of messages with checkboxes; select some (or use the
+header checkbox to select all), then **Delete selected** or type a target queue (same typeahead)
+and **Move selected**. Each row has a **Details** toggle showing the message's full raw property
+map (useful for inspecting `_AMQ_ORIG_ADDRESS`/`_AMQ_ORIG_QUEUE` and anything else the broker
+attached). Delete and move both ask for confirmation first since they're irreversible, and the
+table auto-refreshes afterward so it reflects the queue's real state. An optional **Filter** field
+next to Count/Browse accepts an Artemis core filter expression.
+
+There's no authentication on the UI or the API it calls — see "Notes / follow-ups" below.
 
 ## Configuration
 

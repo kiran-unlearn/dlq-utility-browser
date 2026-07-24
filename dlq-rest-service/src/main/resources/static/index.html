@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DLQ Utility Browser</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>DLQ Utility Browser</h1>
+  </header>
+
+  <main>
+    <section class="panel" aria-labelledby="queue-picker-heading">
+      <h2 id="queue-picker-heading">Queue</h2>
+      <div class="field-row">
+        <div class="field">
+          <label for="queue-input">Queue name</label>
+          <input id="queue-input" type="text" list="queue-options" placeholder="Start typing a queue name…" autocomplete="off" />
+          <datalist id="queue-options"></datalist>
+        </div>
+        <div class="field">
+          <label for="filter-input">Filter (optional)</label>
+          <input id="filter-input" type="text" placeholder="e.g. priority &gt; 3" autocomplete="off" />
+        </div>
+        <div class="field field-buttons">
+          <button id="count-btn" type="button">Count</button>
+          <button id="browse-btn" type="button" class="primary">Browse</button>
+        </div>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" id="messages-section" hidden aria-labelledby="messages-heading">
+      <div class="messages-header">
+        <h2 id="messages-heading">Messages on <span id="active-queue-name"></span></h2>
+        <button id="refresh-btn" type="button">Refresh</button>
+      </div>
+
+      <div class="action-bar">
+        <span id="selected-count">0 selected</span>
+        <button id="delete-selected-btn" type="button" class="danger" disabled>Delete selected</button>
+        <div class="move-controls">
+          <input id="target-queue-input" type="text" list="target-queue-options" placeholder="Target queue…" autocomplete="off" />
+          <datalist id="target-queue-options"></datalist>
+          <button id="move-selected-btn" type="button" disabled>Move selected</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="messages-table">
+          <thead>
+            <tr>
+              <th class="col-checkbox"><input id="select-all" type="checkbox" aria-label="Select all messages" /></th>
+              <th>Message ID</th>
+              <th>Priority</th>
+              <th>Durable</th>
+              <th>Timestamp</th>
+              <th>Original destination</th>
+              <th>Preview</th>
+              <th class="col-details"></th>
+            </tr>
+          </thead>
+          <tbody id="messages-body"></tbody>
+        </table>
+        <p id="empty-state" class="empty-state" hidden>No messages on this queue.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
