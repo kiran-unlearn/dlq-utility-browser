@@ -10,23 +10,44 @@ A REST utility for browsing, deleting, and moving messages on AMQ7 (Artemis) dea
   `activemq.management` address. This avoids needing a JMX/RMI port open — only the normal core
   protocol port (e.g. `61616`) is required. Ships as a Spring Boot auto-configuration: any app
   that depends on it gets a `DlqBrowserService` bean for free once `dlq.artemis.*` properties are set.
-- **dlq-rest-service** — Spring Boot app exposing `dlq-core` over REST. Also serves the web UI as
-  static assets (`src/main/resources/static/`) — plain HTML/CSS/vanilla JS, no build step, no
-  frontend framework. It calls the REST API on the same origin (same host/port), so there's no
-  CORS configuration to maintain. Open `http://localhost:8080/` once the app is running.
+- **dlq-rest-service** — Spring Boot app exposing `dlq-core` over REST. Also serves the web UI:
+  plain HTML/vanilla JS, no build step, no frontend framework. It calls the REST API on the same
+  origin (same host/port), so there's no CORS configuration to maintain. Open
+  `http://localhost:8080/` once the app is running.
 
 ### Web UI
 
-A single page (`index.html` + `app.js` + `style.css`) for the common workflow: type a few
-characters of a queue name into the **Queue name** field to get autocomplete suggestions from
-`GET /api/dlq/queues?search=` (no need to know the exact name up front), pick one, then **Count**
-or **Browse**. Browsing shows a table of messages with checkboxes; select some (or use the
-header checkbox to select all), then **Delete selected** or type a target queue (same typeahead)
-and **Move selected**. Each row has a **Details** toggle showing the message's full raw property
-map (useful for inspecting `_AMQ_ORIG_ADDRESS`/`_AMQ_ORIG_QUEUE` and anything else the broker
-attached). Delete and move both ask for confirmation first since they're irreversible, and the
-table auto-refreshes afterward so it reflects the queue's real state. An optional **Filter** field
-next to Count/Browse accepts an Artemis core filter expression.
+A single page (`templates/index.html` + `static/app.js` + `static/style.css`) for the common
+workflow: type a few characters of a queue name into the **Queue name** field to get autocomplete
+suggestions from `GET /api/dlq/queues?search=` (no need to know the exact name up front), pick
+one, then **Count** or **Browse**. Browsing shows a table of messages with checkboxes; select some
+(or use the header checkbox to select all), then **Delete selected** or type a target queue (same
+typeahead) and **Move selected**. Each row has a **Details** toggle showing the message's full raw
+property map (useful for inspecting `_AMQ_ORIG_ADDRESS`/`_AMQ_ORIG_QUEUE` and anything else the
+broker attached). Delete and move both ask for confirmation first since they're irreversible, and
+the table auto-refreshes afterward so it reflects the queue's real state. An optional **Filter**
+field next to Count/Browse accepts an Artemis core filter expression.
+
+**Why Thymeleaf instead of a plain `static/index.html`:** the HTML shell is rendered via
+`spring-boot-starter-thymeleaf` and an explicit `UiController` (`@GetMapping("/")` → view `index`,
+resolved from `src/main/resources/templates/index.html`) rather than relying on Spring Boot's
+implicit static-welcome-page resolution. The page itself has no server-side data binding — it's a
+pure client-side app that calls the REST API via `fetch` — so this is a thin shell, not a real
+server-rendered app; the only Thymeleaf usage is `th:href="@{/style.css}"` /
+`th:src="@{/app.js}"` so asset links stay correct under a non-root servlet context path. This
+setup was adopted specifically because some environments (in-house platforms/frameworks layered
+on top of Spring Boot, custom app-server deployments, etc.) don't preserve Spring Boot's default
+`classpath:/static/**` welcome-page auto-configuration; an explicit controller + view resolver is
+closer to bedrock Spring MVC and more likely to keep working under those layers. `app.js` and
+`style.css` remain plain static assets under `src/main/resources/static/` — only the HTML page
+itself needed to move.
+
+If the UI 404s in an environment that layers custom functionality on top of Spring Boot (internal
+platform frameworks, non-default servlet/app-server deployment, etc.): confirm `GET /app.js` and
+`GET /style.css` work independently of `GET /`. If those also fail, static-resource serving itself
+is being intercepted/blocked by whatever sits on top of Spring Boot there, and the fix needs to
+address that more broadly — moving the HTML to a template only fixes root-page delivery, not
+static asset serving.
 
 There's no authentication on the UI or the API it calls — see "Notes / follow-ups" below.
 
